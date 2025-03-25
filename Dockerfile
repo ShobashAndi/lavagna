@@ -1,30 +1,33 @@
  # Docker file for demo purposes
 
 # Alpine - so download is fast
-FROM maven:3.6.3-openjdk-8
+FROM maven:3.6.3-openjdk-8 AS build
 #ROM openjdk:8-jre-alpine
-
-RUN apt-get update && apt-get install -y netcat && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY ./project . 
+COPY ./project .
 
 #RUN mvn clean install
 RUN mvn install
 
+FROM openjdk:8-jre-alpine
 
-#ENV DB_DIALECT="MYSQL"
-#ENV DB_URL="jdbc:mysql://mysql:3306/lavagna?autoReconnect=true&useSSL=false"
-#ENV DB_USER="lavagna"
-#ENV DB_PASS="lavagna_pass"
-#ENV SPRING_PROFILE="dev"
+WORKDIR /app
 
+# Install netcat (if required for debugging or wait-for-db scripts)
+RUN apk add --no-cache netcat-openbsd
+
+# Copy built artifacts from the build stage
+COPY --from=build /app/target/lavagna-jetty-console.war /app/
+
+# Copy the entrypoint script
+COPY ./project/entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+# Expose application port
 EXPOSE 8080
 
-COPY ./project/entrypoint.sh /entrypoint.sh
-
-RUN chmod +x /entrypoint.sh
 
 # Execute the web archive
 ENTRYPOINT ["./entrypoint.sh"]
